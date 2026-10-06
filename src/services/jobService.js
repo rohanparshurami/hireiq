@@ -1,4 +1,5 @@
 const Job = require('../models/Jobs');
+const geminiHelper = require('../helpers/geminiHelper');
 
 async function createJob(userId, data) {
   if (!data.title) return { success: false, message: 'Job title is required' };
@@ -111,4 +112,28 @@ async function deleteJob(jobId) {
   return { success: true, message: 'Job deleted successfully' };
 }
 
-module.exports = { createJob: createJob, getJobs: getJobs, getJob: getJob, updateJob: updateJob, deleteJob: deleteJob };
+async function generateInterviewQuestions(jobId) {
+    if (!jobId) return { success: false, message: 'Job ID is required' };
+
+    const job = await Job.findOne({ jobId: jobId });
+    if (!job) return { success: false, message: 'Job not found' };
+
+    try {
+        const questions = await geminiHelper.generateInterviewQuestions(job.title, job.description);
+        job.interviewQuestions = questions;
+        await job.save();
+        return {
+            success: true,
+            data: {
+                jobId: job.jobId,
+                jobTitle: job.title,
+                interviewQuestions: questions
+            }
+        };
+    } catch (geminiError) {
+        console.error('Gemini interview questions failed:', geminiError.message);
+        return { success: false, message: 'AI service is temporarily unavailable. Please try again later.' };
+    }
+}
+
+module.exports = { createJob: createJob, getJobs: getJobs, getJob: getJob, updateJob: updateJob, deleteJob: deleteJob, generateInterviewQuestions: generateInterviewQuestions };

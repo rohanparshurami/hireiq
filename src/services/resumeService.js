@@ -115,4 +115,28 @@ async function matchResume(resumeId, jobId) {
   };
 }
 
-module.exports = { uploadResume: uploadResume, getResumeUrl: getResumeUrl, getMyResumes: getMyResumes, matchResume: matchResume };
+async function getResumeFeedback(resumeId) {
+  if (!resumeId) return { success: false, message: 'Resume ID is required' };
+
+  const resume = await Resume.findOne({ resumeId: resumeId });
+  if (!resume) return { success: false, message: 'Resume not found' };
+
+  if (!resume.parsedData || !resume.parsedData.name) {
+      return { success: false, message: 'Resume has not been parsed yet.' };
+  }
+
+  try {
+      const feedback = await geminiHelper.getResumeFeedback(resume.parsedData);
+      resume.feedback = feedback;
+      await resume.save();
+      return {
+          success: true,
+          data: { resumeId: resume.resumeId, candidateName: resume.parsedData.name, feedback }
+      };
+  } catch (geminiError) {
+      console.error('Gemini feedback failed:', geminiError.message);
+      return { success: false, message: 'AI service is temporarily unavailable. Please try again later.' };
+  }
+}
+
+module.exports = { uploadResume: uploadResume, getResumeUrl: getResumeUrl, getMyResumes: getMyResumes, matchResume: matchResume, getResumeFeedback: getResumeFeedback };

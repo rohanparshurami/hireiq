@@ -50,4 +50,14 @@ async function deleteJob(req, res) {
   }
 }
 
-module.exports = { createJob: createJob, getJobs: getJobs, getJob: getJob, updateJob: updateJob, deleteJob: deleteJob };
+async function generateInterviewQuestions(req, res) {
+  try {
+      const result = await jobService.generateInterviewQuestions(req.body.jobId);
+      return res.json(result);
+  } catch (error) {
+      console.error(error);
+      return res.json({ success: false, message: 'Something went wrong, please try again' });
+  }
+}
+
+module.exports = { createJob: createJob, getJobs: getJobs, getJob: getJob, updateJob: updateJob, deleteJob: deleteJob, generateInterviewQuestions: generateInterviewQuestions };

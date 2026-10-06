@@ -10,7 +10,13 @@ const jobSchema = new mongoose.Schema({
   salary: { type: Number },
   skillset: { type: [String], default: [] },
   status: { type: String, enum: ['open', 'closed', 'draft'], default: 'open' },
-  postedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+  postedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  interviewQuestions: {
+    technical:   { type: [String], default: [] },
+    behavioral:  { type: [String], default: [] },
+    situational: { type: [String], default: [] },
+    cultural:    { type: [String], default: [] }
+  }
 }, { timestamps: true });
 
 jobSchema.pre('save', async function() {

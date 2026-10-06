@@ -26,12 +26,14 @@ function registerRoutes(app) {
   app.post('/jobs/getJob', jobController.getJob);
   app.post('/jobs/updateJob', jobController.updateJob);
   app.post('/jobs/deleteJob', jobController.deleteJob);
+  app.post('/jobs/interviewQuestions', jobController.generateInterviewQuestions);
 
   // Resume routes
   app.post('/resume/upload', resumeController.uploadResume);
   app.post('/resume/getUrl', resumeController.getResumeUrl);
   app.post('/resume/myResumes', resumeController.getMyResumes);
   app.post('/resume/match', resumeController.matchResume);
+  app.post('/resume/feedback', resumeController.getResumeFeedback);
 }
 
 module.exports = { registerRoutes: registerRoutes };

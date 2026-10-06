@@ -40,4 +40,14 @@ async function matchResume(req, res) {
   }
 }
 
-module.exports = { uploadResume: uploadResume, getResumeUrl: getResumeUrl, getMyResumes: getMyResumes, matchResume: matchResume };
+async function getResumeFeedback(req, res) {
+  try {
+      const result = await resumeService.getResumeFeedback(req.body.resumeId);
+      return res.json(result);
+  } catch (error) {
+      console.error(error);
+      return res.json({ success: false, message: 'Something went wrong, please try again' });
+  }
+}
+
+module.exports = { uploadResume: uploadResume, getResumeUrl: getResumeUrl, getMyResumes: getMyResumes, matchResume: matchResume, getResumeFeedback: getResumeFeedback };

@@ -29,6 +29,15 @@ const resumeSchema = new mongoose.Schema({
         matchedSkills: { type: [String], default: [] },
         missingSkills: { type: [String], default: [] },
         recommendation: { type: String }
+    },
+    feedback: {
+      overallRating:      { type: String },
+      overallSummary:     { type: String },
+      strengths:          { type: [String], default: [] },
+      improvements:       { type: [String], default: [] },
+      missingElements:    { type: [String], default: [] },
+      experienceFeedback: { type: String },
+      skillsFeedback:     { type: String }
     }
 }, { timestamps: true });
 
