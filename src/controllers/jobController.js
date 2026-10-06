@@ -2,46 +2,51 @@ const jobService = require('../services/jobService');
 
 async function createJob(req, res) {
   try {
-    const job = await jobService.createJob(req.userId, req.body);
-    return res.json({ success: true, message: 'Job created successfully', data: job });
+    const result = await jobService.createJob(req.userId, req.body);
+    return res.json(result);
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    return res.json({ success: false, message: 'Something went wrong, please try again' });
   }
 }
 
 async function getJobs(req, res) {
   try {
-    const jobs = await jobService.getJobs();
-    return res.json({ success: true, data: jobs });
+    const result = await jobService.getJobs();
+    return res.json(result);
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    return res.json({ success: false, message: 'Something went wrong, please try again' });
   }
 }
 
 async function getJob(req, res) {
   try {
-    const job = await jobService.getJob(req.body.id);
-    return res.json({ success: true, data: job });
+    const result = await jobService.getJob(req.body.id);
+    return res.json(result);
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    return res.json({ success: false, message: 'Something went wrong, please try again' });
   }
 }
 
 async function updateJob(req, res) {
   try {
-    const job = await jobService.updateJob(req.body.id, req.body);
-    return res.json({ success: true, message: 'Job updated successfully', data: job });
+    const result = await jobService.updateJob(req.body.id, req.body);
+    return res.json(result);
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    return res.json({ success: false, message: 'Something went wrong, please try again' });
   }
 }
 
 async function deleteJob(req, res) {
   try {
-    await jobService.deleteJob(req.body.id);
-    return res.json({ success: true, message: 'Job deleted successfully' });
+    const result = await jobService.deleteJob(req.body.id);
+    return res.json(result);
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    return res.json({ success: false, message: 'Something went wrong, please try again' });
   }
 }
 

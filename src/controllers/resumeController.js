@@ -2,31 +2,31 @@ const resumeService = require('../services/resumeService');
 
 async function uploadResume(req, res) {
   try {
-    if (!req.file) {
-      return res.json({ success: false, message: 'No file uploaded' });
-    }
-    const resume = await resumeService.uploadResume(req.userId, req.body.jobId, req.file);
-    return res.json({ success: true, message: 'Resume uploaded successfully', data: resume });
+    const result = await resumeService.uploadResume(req.userId, req.body.jobId, req.file);
+    return res.json(result);
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    return res.json({ success: false, message: 'Something went wrong, please try again' });
   }
 }
 
 async function getResumeUrl(req, res) {
   try {
-    const data = await resumeService.getResumeUrl(req.body.resumeId);
-    return res.json({ success: true, data: data });
+    const result = await resumeService.getResumeUrl(req.body.resumeId);
+    return res.json(result);
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    return res.json({ success: false, message: 'Something went wrong, please try again' });
   }
 }
 
 async function getMyResumes(req, res) {
   try {
-    const resumes = await resumeService.getMyResumes(req.userId);
-    return res.json({ success: true, data: resumes });
+    const result = await resumeService.getMyResumes(req.userId);
+    return res.json(result);
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    return res.json({ success: false, message: 'Something went wrong, please try again' });
   }
 }
 
