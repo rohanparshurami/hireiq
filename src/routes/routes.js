@@ -31,6 +31,7 @@ function registerRoutes(app) {
   app.post('/resume/upload', resumeController.uploadResume);
   app.post('/resume/getUrl', resumeController.getResumeUrl);
   app.post('/resume/myResumes', resumeController.getMyResumes);
+  app.post('/resume/match', resumeController.matchResume);
 }
 
 module.exports = { registerRoutes: registerRoutes };

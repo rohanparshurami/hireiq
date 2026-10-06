@@ -30,4 +30,14 @@ async function getMyResumes(req, res) {
   }
 }
 
-module.exports = { uploadResume: uploadResume, getResumeUrl: getResumeUrl, getMyResumes: getMyResumes };
+async function matchResume(req, res) {
+  try {
+      const result = await resumeService.matchResume(req.body.resumeId, req.body.jobId);
+      return res.json(result);
+  } catch (error) {
+      console.error(error);
+      return res.json({ success: false, message: 'Something went wrong, please try again' });
+  }
+}
+
+module.exports = { uploadResume: uploadResume, getResumeUrl: getResumeUrl, getMyResumes: getMyResumes, matchResume: matchResume };
