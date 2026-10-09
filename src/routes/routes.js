@@ -3,13 +3,9 @@ const authMiddleware = require('../middlewares/authMiddleware');
 const fileUploadMiddleware = require('../middlewares/fileUploadMiddleware');
 const jobController = require('../controllers/jobController');
 const resumeController = require('../controllers/resumeController');
+const searchController = require('../controllers/searchController');
 
 function registerRoutes(app) {
-  // HEALTH
-  app.get('/health', function(req, res) {
-    return res.json({ status: 'ok' });
-  });
-
   // Auth routes (public)
   app.post('/auth/register', authController.register);
   app.post('/auth/login', authController.login);
@@ -34,6 +30,10 @@ function registerRoutes(app) {
   app.post('/resume/myResumes', resumeController.getMyResumes);
   app.post('/resume/match', resumeController.matchResume);
   app.post('/resume/feedback', resumeController.getResumeFeedback);
+
+  // Search routes (semantic search) — ADD THESE
+  app.post('/search/jobs', searchController.findJobsForResume);
+  app.post('/search/candidates', searchController.findCandidatesForJob);
 }
 
 module.exports = { registerRoutes: registerRoutes };
