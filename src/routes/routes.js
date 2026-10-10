@@ -4,13 +4,14 @@ const fileUploadMiddleware = require('../middlewares/fileUploadMiddleware');
 const jobController = require('../controllers/jobController');
 const resumeController = require('../controllers/resumeController');
 const searchController = require('../controllers/searchController');
+const agentController = require('../controllers/agentController');
 
 function registerRoutes(app) {
   // Auth routes (public)
   app.post('/auth/register', authController.register);
   app.post('/auth/login', authController.login);
 
-  // Protected routes
+  // Middleware
   app.use(authMiddleware.protect);
   app.use(fileUploadMiddleware.globalFileMiddleware);
 
@@ -31,9 +32,12 @@ function registerRoutes(app) {
   app.post('/resume/match', resumeController.matchResume);
   app.post('/resume/feedback', resumeController.getResumeFeedback);
 
-  // Search routes (semantic search) — ADD THESE
+  // Search routes (semantic search)
   app.post('/search/jobs', searchController.findJobsForResume);
   app.post('/search/candidates', searchController.findCandidatesForJob);
+
+  // Agent routes
+  app.post('/agent/screen', agentController.screenCandidates);
 }
 
 module.exports = { registerRoutes: registerRoutes };
