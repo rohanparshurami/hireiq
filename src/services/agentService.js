@@ -1,155 +1,139 @@
 const genAI = require('../config/gemini');
-const { toolDefinitions, toolImplementations } = require('../helpers/agentTools');
+const { withRetry, toolDefinitions, toolImplementations } = require('../helpers/agentHelper');
 
 const MAX_ITERATIONS = 10;
-const AGENT_TIMEOUT_MS = 60000; // 60 seconds max
-const MAX_RETRIES = 3;
+const TIMEOUT_MS = 60000;
 
-// ─── Retry with exponential backoff ───────────────────────────────────────────
-async function callWithRetry(fn, retries = MAX_RETRIES) {
-    for (let attempt = 1; attempt <= retries; attempt++) {
-        try {
-            return await fn();
-        } catch (err) {
-            const isRetryable = err.message?.includes('503') || 
-                                err.message?.includes('overloaded') ||
-                                err.message?.includes('UNAVAILABLE');
+// Execute a single tool call with cache
+async function executeTool(name, args, cache) {
+    const cacheKey = `${name}:${JSON.stringify(args)}`;
 
-            if (!isRetryable || attempt === retries) {
-                throw err;
-            }
-
-            const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
-            console.warn(`[Agent] Gemini unavailable. Retry ${attempt}/${retries} in ${delay}ms...`);
-            await new Promise(res => setTimeout(res, delay));
-        }
+    if (cache[cacheKey]) {
+        console.log(`[Agent] Cache hit: ${name}`);
+        return cache[cacheKey];
     }
+
+    if (!toolImplementations[name]) {
+        throw new Error(`Unknown tool: ${name}`);
+    }
+
+    console.log(`[Agent] Executing: ${name}`, args);
+    const result = await toolImplementations[name](args);
+    cache[cacheKey] = result;
+    console.log(`[Agent] Done: ${name}`);
+    return result;
 }
 
-// ─── Main agent function ───────────────────────────────────────────────────────
+// Main agent function
 async function runScreeningAgent(userMessage) {
-    const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-    const startTime = Date.now();
-
-    console.log('[Agent] Starting screening agent');
-    console.log('[Agent] User message:', userMessage);
-    console.log('[Agent] Using model:', modelName);
 
     // Input validation
-    if (!userMessage || typeof userMessage !== 'string' || userMessage.trim().length < 10) {
-        return { success: false, answer: 'Please provide a valid message (minimum 10 characters).', iterations: 0 };
+    if (!userMessage || userMessage.trim().length < 10) {
+        return { success: false, answer: 'Message too short.', iterations: 0 };
     }
+
+    const startTime = Date.now();
+    const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    console.log(`[Agent] Starting | model: ${modelName} | message: ${userMessage}`);
 
     const model = genAI.getGenerativeModel({
         model: modelName,
         tools: [{ functionDeclarations: toolDefinitions }],
         systemInstruction: {
-            parts: [{
-                text: 'You are an AI recruitment screener. You help recruiters find and evaluate candidates for jobs. Use the available tools to fetch job details, search candidates, and calculate match scores. Always provide a structured final recommendation.'
-            }]
+            parts: [{ text: 'You are an AI recruitment screener. Use tools to fetch job details, search candidates, and calculate match scores. Always give a structured final recommendation.' }]
         }
     });
 
+    const contents = [{ role: 'user', parts: [{ text: userMessage }] }];
     const cache = {};
     let iterations = 0;
-    let totalTokensUsed = 0;
+    let totalTokens = 0;
 
-    const contents = [
-        { role: 'user', parts: [{ text: userMessage }] }
-    ];
+    // Calls Gemini with the current conversation history
+    async function callGemini() {
+        return model.generateContent({ contents });
+    }
 
+    // Agentic loop
     while (iterations < MAX_ITERATIONS) {
-        // ── Timeout check ──────────────────────────────────────────────────────
-        if (Date.now() - startTime > AGENT_TIMEOUT_MS) {
-            console.warn('[Agent] Timeout reached after', Date.now() - startTime, 'ms');
-            return {
-                success: false,
-                answer: 'Agent timed out. Please try again with a simpler request.',
-                iterations,
-                tokensUsed: totalTokensUsed
-            };
+
+        // Timeout check
+        if (Date.now() - startTime > TIMEOUT_MS) {
+            return { success: false, answer: 'Agent timed out.', iterations, tokensUsed: totalTokens };
         }
 
         iterations++;
         console.log(`[Agent] Iteration ${iterations}/${MAX_ITERATIONS}`);
 
-        // ── Call Gemini with retry ─────────────────────────────────────────────
-        const result = await callWithRetry(() => model.generateContent({ contents }));
-        const candidate = result.response.candidates[0];
+        // Call Gemini with retry
+        const result = await withRetry(callGemini, 3, 'AgentService')();
+        const geminiResponse = result.response.candidates[0];
 
-        // ── Token tracking ─────────────────────────────────────────────────────
+        // Track tokens
         const usage = result.response.usageMetadata;
         if (usage) {
-            totalTokensUsed += usage.totalTokenCount || 0;
-            console.log(`[Agent] Tokens this call — prompt: ${usage.promptTokenCount}, candidates: ${usage.candidatesTokenCount}, total so far: ${totalTokensUsed}`);
+            totalTokens += usage.totalTokenCount || 0;
+            console.log(`[Agent] Tokens used so far: ${totalTokens}`);
         }
 
-        contents.push(candidate.content);
+        // Add Gemini response to conversation history
+        contents.push(geminiResponse.content);
 
-        const parts = candidate.content?.parts || [];
-        const functionCalls = parts.filter(p => p.functionCall).map(p => p.functionCall);
+        const parts = geminiResponse.content?.parts || [];
 
-        // ── Final answer ───────────────────────────────────────────────────────
-        if (functionCalls.length === 0) {
-            const textPart = parts.find(p => p.text);
-            const duration = Date.now() - startTime;
-            console.log(`[Agent] Final answer received after ${iterations} iterations, ${duration}ms, ${totalTokensUsed} tokens`);
-            return {
-                success: true,
-                answer: textPart ? textPart.text : 'No response generated',
-                iterations,
-                tokensUsed: totalTokensUsed,
-                durationMs: duration
-            };
-        }
-
-        // ── Parallel tool execution ────────────────────────────────────────────
-        console.log(`[Agent] Executing ${functionCalls.length} tool(s) in parallel...`);
-
-        const toolResults = await Promise.all(
-            functionCalls.map(async ({ name, args }) => {
-                console.log(`[Agent] Tool called: ${name} | args:`, JSON.stringify(args));
-
-                const cacheKey = name + ':' + JSON.stringify(args);
-
-                if (cache[cacheKey]) {
-                    console.log(`[Agent] Cache hit: ${name}`);
-                    return { name, result: cache[cacheKey] };
-                }
-
-                try {
-                    if (!toolImplementations[name]) throw new Error('Unknown tool: ' + name);
-                    const toolResult = await toolImplementations[name](args);
-                    cache[cacheKey] = toolResult;
-                    console.log(`[Agent] Tool success: ${name} →`, JSON.stringify(toolResult).substring(0, 300));
-                    return { name, result: toolResult };
-                } catch (err) {
-                    console.error(`[Agent] Tool failed: ${name} →`, err.message);
-                    return { name, result: { success: false, message: err.message } };
-                }
-            })
-        );
-
-        // ── Send all tool results back to Gemini ───────────────────────────────
-        const functionResponseParts = toolResults.map(({ name, result }) => ({
-            functionResponse: {
-                name,
-                response: { result }
+        // Extract function calls using forEach
+        const functionCalls = [];
+        parts.forEach(function(p) {
+            if (p.functionCall) {
+                functionCalls.push(p.functionCall);
             }
-        }));
+        });
 
-        console.log(`[Agent] Sending ${functionResponseParts.length} tool result(s) back to Gemini...`);
-        contents.push({ role: 'user', parts: functionResponseParts });
+        // No tool calls = Gemini gave final answer
+        if (functionCalls.length === 0) {
+            let answer = 'No response generated';
+            parts.forEach(function(p) {
+                if (p.text) {
+                    answer = p.text;
+                }
+            });
+            const duration = Date.now() - startTime;
+            console.log(`[Agent] Done in ${iterations} iterations, ${duration}ms, ${totalTokens} tokens`);
+            return { success: true, answer, iterations, tokensUsed: totalTokens, durationMs: duration };
+        }
+
+        // Run all tool calls in parallel
+        console.log(`[Agent] Running ${functionCalls.length} tool(s) in parallel`);
+        const toolPromises = [];
+        functionCalls.forEach(function(functionCall) {
+            const promise = executeTool(functionCall.name, functionCall.args, cache)
+                .then(function(result) {
+                    return { name: functionCall.name, result: result };
+                })
+                .catch(function(err) {
+                    console.error(`[Agent] Tool error: ${functionCall.name} — ${err.message}`);
+                    return { name: functionCall.name, result: { success: false, message: err.message } };
+                });
+            toolPromises.push(promise);
+        });
+
+        const toolResults = await Promise.all(toolPromises);
+
+        // Send results back to Gemini
+        const responseparts = [];
+        toolResults.forEach(function(toolResult) {
+            responseparts.push({
+                functionResponse: {
+                    name: toolResult.name,
+                    response: { result: toolResult.result }
+                }
+            });
+        });
+
+        contents.push({ role: 'user', parts: responseparts });
     }
 
-    console.warn('[Agent] Max iterations reached');
-    return {
-        success: false,
-        answer: 'Agent reached maximum iterations without a final answer.',
-        iterations,
-        tokensUsed: totalTokensUsed,
-        durationMs: Date.now() - startTime
-    };
+    return { success: false, answer: 'Max iterations reached.', iterations, tokensUsed: totalTokens };
 }
 
 module.exports = { runScreeningAgent };

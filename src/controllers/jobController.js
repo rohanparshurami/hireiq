@@ -22,7 +22,7 @@ async function getJobs(req, res) {
 
 async function getJob(req, res) {
   try {
-    const result = await jobService.getJob(req.body.id);
+    const result = await jobService.getJob(req.body.jobId);
     return res.json(result);
   } catch (error) {
     console.error(error);
@@ -32,7 +32,7 @@ async function getJob(req, res) {
 
 async function updateJob(req, res) {
   try {
-    const result = await jobService.updateJob(req.body.id, req.body);
+    const result = await jobService.updateJob(req.body.jobId, req.body);
     return res.json(result);
   } catch (error) {
     console.error(error);
@@ -42,7 +42,7 @@ async function updateJob(req, res) {
 
 async function deleteJob(req, res) {
   try {
-    const result = await jobService.deleteJob(req.body.id);
+    const result = await jobService.deleteJob(req.body.jobId);
     return res.json(result);
   } catch (error) {
     console.error(error);
@@ -60,4 +60,4 @@ async function generateInterviewQuestions(req, res) {
   }
 }
 
-module.exports = { createJob: createJob, getJobs: getJobs, getJob: getJob, updateJob: updateJob, deleteJob: deleteJob, generateInterviewQuestions: generateInterviewQuestions };
+module.exports = { createJob, getJobs, getJob, updateJob, deleteJob, generateInterviewQuestions };

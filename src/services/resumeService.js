@@ -183,10 +183,33 @@ async function getResumeFeedback(resumeId) {
     }
 }
 
+// Returns resume as plain text for use by multi-agent pipeline
+async function getResumeText(resumeId) {
+    if (!resumeId) return { success: false, message: 'Resume ID is required' };
+
+    const resume = await Resume.findOne({ resumeId: resumeId });
+    if (!resume) return { success: false, message: 'Resume not found' };
+
+    if (!resume.parsedData || !resume.parsedData.name) {
+        return { success: false, message: 'Resume has not been parsed yet. Please re-upload.' };
+    }
+
+    const text = buildResumeText(resume.parsedData);
+    return {
+        success: true,
+        data: {
+            resumeId: resume.resumeId,
+            candidateName: resume.parsedData.name,
+            text: text
+        }
+    };
+}
+
 module.exports = {
     uploadResume: uploadResume,
     getResumeUrl: getResumeUrl,
     getMyResumes: getMyResumes,
     matchResume: matchResume,
-    getResumeFeedback: getResumeFeedback
+    getResumeFeedback: getResumeFeedback,
+    getResumeText: getResumeText
 };
